@@ -38,13 +38,23 @@ def main(argv: Sequence[str] | None = None) -> None:
     print(yaml.safe_dump(config, sort_keys=False).strip())
     print(f"Output directory: {output_dir}")
 
-    method = config.get("method")
-    if method == "fedavg_lora":
+    jury_config = config.get("jury")
+    if isinstance(jury_config, dict) and jury_config.get("enabled") is True:
+        if jury_config.get("mode") != "global_only":
+            raise ValueError(
+                "Unsupported Jury mode: " f"{jury_config.get('mode')!r}."
+            )
+        from src.federated.trainer_jury import run_jury_global_training
+
+        run_jury_global_training(args.config)
+    elif config.get("method") == "fedavg_lora":
         from src.federated.trainer import run_fedavg_training
 
         run_fedavg_training(args.config)
     else:
-        raise ValueError(f"Unsupported federated method: {method!r}.")
+        raise ValueError(
+            f"Unsupported federated method: {config.get('method')!r}."
+        )
 
 
 if __name__ == "__main__":

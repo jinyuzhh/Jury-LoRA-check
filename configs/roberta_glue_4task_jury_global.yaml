@@ -18,10 +18,10 @@ lora:
   target_modules: [query, value]
 
 federated:
-  rounds: 2
+  rounds: 3
   local_epochs: 1
-  train_batch_size: 16
-  eval_batch_size: 32
+  train_batch_size: 64
+  eval_batch_size: 64
   lr: 2.0e-5
   weight_decay: 0.0
 

@@ -9,7 +9,7 @@ data:
   num_clients: 16
   clients_per_task: 4
   max_train_samples_per_client: 1000
-  max_eval_samples_per_task: 500
+  max_eval_samples_per_task: 200
 
 lora:
   rank: 8
@@ -18,7 +18,7 @@ lora:
   target_modules: [query, value]
 
 federated:
-  rounds: 10
+  rounds: 2
   local_epochs: 1
   train_batch_size: 16
   eval_batch_size: 32

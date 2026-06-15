@@ -127,7 +127,7 @@ def build_glue_clients(
     eval_loaders: dict[str, DataLoader] = {}
 
     for task_name in _TASK_TEXT_FIELDS:
-        task_dataset = load_dataset("glue", task_name)
+        task_dataset = load_dataset("nyu-mll/glue", task_name)
 
         shuffled_train = task_dataset["train"].shuffle(seed=split_seed)
         train_sample_count = min(

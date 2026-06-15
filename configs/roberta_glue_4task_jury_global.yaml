@@ -1,0 +1,47 @@
+seed: 42
+method: fedavg_lora
+
+model:
+  name: roberta-base
+
+data:
+  tasks: [sst2, qnli, mrpc, qqp]
+  num_clients: 16
+  clients_per_task: 4
+  max_train_samples_per_client: 1000
+  max_eval_samples_per_task: 500
+
+lora:
+  rank: 8
+  alpha: 16
+  dropout: 0.0
+  target_modules: [query, value]
+
+federated:
+  rounds: 10
+  local_epochs: 1
+  train_batch_size: 16
+  eval_batch_size: 32
+  lr: 2.0e-5
+  weight_decay: 0.0
+
+jury:
+  enabled: true
+  mode: global_only
+  svd_top_r: 8
+  top_k_mode: sigma
+  top_k_per_layer: 16
+  vote_mode: sign
+  vote_batch_size: 8
+  gamma_threshold: 0.0
+  theta_high: 0.7
+  theta_low: 0.3
+  eta_memory: 1.0
+  alpha_memory: 1.0
+  global_memory_budget_per_layer: 32
+
+output:
+  dir: outputs/jury_roberta_glue_4task
+  save_vote_matrix: true
+  save_round_metrics: true
+  save_memory_stats: true

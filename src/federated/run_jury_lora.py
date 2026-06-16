@@ -21,6 +21,15 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         required=True,
         help="Path to the YAML experiment configuration.",
     )
+    parser.add_argument(
+        "--local-client-id",
+        type=int,
+        default=None,
+        help=(
+            "Run a single client locally without FedAvg/Jury server aggregation. "
+            "Use 0 for Client A."
+        ),
+    )
     return parser.parse_args(argv)
 
 
@@ -37,6 +46,12 @@ def main(argv: Sequence[str] | None = None) -> None:
     print("Loaded configuration:")
     print(yaml.safe_dump(config, sort_keys=False).strip())
     print(f"Output directory: {output_dir}")
+
+    if args.local_client_id is not None:
+        from src.federated.trainer_local import run_local_client_training
+
+        run_local_client_training(args.config, args.local_client_id)
+        return
 
     jury_config = config.get("jury")
     if isinstance(jury_config, dict) and jury_config.get("enabled") is True:

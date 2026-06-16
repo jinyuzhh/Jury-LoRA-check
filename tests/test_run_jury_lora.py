@@ -50,6 +50,28 @@ def test_fedavg_fallback_when_jury_disabled(tmp_path, monkeypatch) -> None:
     assert len(calls) == 1
 
 
+def test_local_client_mode_takes_precedence_over_jury(tmp_path, monkeypatch) -> None:
+    config = _base_config(tmp_path)
+    config["jury"]["enabled"] = True
+    calls: list[tuple[object, int]] = []
+    monkeypatch.setattr(run_jury_lora, "load_config", lambda path: config)
+    monkeypatch.setattr(run_jury_lora, "set_seed", lambda seed: None)
+
+    fake_local = ModuleType("src.federated.trainer_local")
+    fake_local.run_local_client_training = (
+        lambda path, client_id: calls.append((path, client_id))
+    )
+    monkeypatch.setitem(sys.modules, "src.federated.trainer_local", fake_local)
+
+    run_jury_lora.main(
+        ["--config", "config.yaml", "--local-client-id", "0"]
+    )
+
+    assert len(calls) == 1
+    assert calls[0][0].name == "config.yaml"
+    assert calls[0][1] == 0
+
+
 def test_rejects_unsupported_jury_mode(tmp_path, monkeypatch) -> None:
     config = _base_config(tmp_path)
     config["jury"] = {"enabled": True, "mode": "personalized"}

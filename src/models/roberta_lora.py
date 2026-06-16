@@ -5,6 +5,8 @@ from typing import Any
 from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import AutoModelForSequenceClassification
 
+from src.models.lora_utils import assert_no_trainable_heads, freeze_head_parameters
+
 
 _SUPPORTED_TASKS = {"sst2", "qnli", "mrpc", "qqp"}
 
@@ -31,4 +33,7 @@ def build_lora_model(task_name: str, config: dict[str, Any]) -> PeftModel:
         lora_dropout=lora_config["dropout"],
         target_modules=lora_config["target_modules"],
     )
-    return get_peft_model(model, peft_config)
+    peft_model = get_peft_model(model, peft_config)
+    freeze_head_parameters(peft_model)
+    assert_no_trainable_heads(peft_model)
+    return peft_model

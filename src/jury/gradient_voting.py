@@ -104,7 +104,7 @@ def create_atom_gates_for_layer(
         raise ValueError("At least one atom is required to create layer gates.")
 
     weight = _target_weight(module)
-    voting_device = weight.device
+    voting_device = torch.device(device)
     if weight.device != voting_device:
         raise ValueError(
             f"Target layer weight is on {weight.device}, but voting device is "

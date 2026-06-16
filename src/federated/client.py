@@ -7,7 +7,16 @@ import torch
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
-from src.models.lora_utils import get_lora_state_dict, load_lora_state_dict
+from src.models.lora_utils import (
+    assert_head_state_unchanged,
+    assert_no_trainable_heads,
+    get_head_state_dict,
+    get_lora_state_dict,
+    is_head_parameter,
+    load_lora_state_dict,
+    print_trainable_parameter_names,
+    trainable_adapter_parameters,
+)
 from src.models.roberta_lora import build_lora_model
 
 
@@ -45,21 +54,18 @@ class FederatedClient:
 
     @staticmethod
     def _is_classifier_parameter(name: str) -> bool:
-        return "classifier" in name.split(".")
+        return is_head_parameter(name)
 
     def load_private_classifier(self, model: torch.nn.Module) -> None:
         """Restore this client's private classifier without touching LoRA state."""
         if self._classifier_state_dict is None:
             return
         model.load_state_dict(self._classifier_state_dict, strict=False)
+        assert_no_trainable_heads(model)
 
     def save_private_classifier(self, model: torch.nn.Module) -> None:
         """Persist this client's classifier on CPU for future rounds."""
-        classifier_state = {
-            name: tensor.detach().cpu().clone()
-            for name, tensor in model.state_dict().items()
-            if self._is_classifier_parameter(name)
-        }
+        classifier_state = get_head_state_dict(model)
         if not classifier_state:
             raise ValueError(
                 f"Client {self.client_id} model does not expose classifier parameters."
@@ -87,12 +93,15 @@ class FederatedClient:
         model = build_lora_model(self.task_name, self.config)
         load_lora_state_dict(model, global_lora_state, strict=False)
         self.load_private_classifier(model)
+        assert_no_trainable_heads(model)
         model.to(self.device)
         model.train()
+        print_trainable_parameter_names(model)
+        classifier_state_before_training = get_head_state_dict(model)
 
         federated_config = self.config["federated"]
         optimizer = AdamW(
-            (parameter for parameter in model.parameters() if parameter.requires_grad),
+            trainable_adapter_parameters(model),
             lr=federated_config["lr"],
             weight_decay=federated_config["weight_decay"],
         )
@@ -127,6 +136,8 @@ class FederatedClient:
                 total_examples += batch_size
 
         average_train_loss = total_loss / total_examples if total_examples else 0.0
+        assert_no_trainable_heads(model)
+        assert_head_state_unchanged(classifier_state_before_training, model)
         lora_state_dict = get_lora_state_dict(model)
         self.save_private_classifier(model)
         return {

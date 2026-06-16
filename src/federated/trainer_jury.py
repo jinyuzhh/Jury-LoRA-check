@@ -19,7 +19,16 @@ from src.jury.server_jury import (
     apply_global_memory_to_model,
     update_global_memory,
 )
-from src.models.lora_utils import extract_lora_A_B, get_lora_state_dict
+from src.models.lora_utils import (
+    assert_head_state_unchanged,
+    assert_no_trainable_heads,
+    extract_lora_A_B,
+    freeze_head_parameters,
+    get_head_state_dict,
+    get_lora_state_dict,
+    print_trainable_parameter_names,
+    trainable_adapter_parameters,
+)
 from src.utils.config import load_config
 from src.utils.seed import set_seed
 
@@ -155,8 +164,10 @@ def train_client_with_memory(
     build_model = model_builder or _default_model_builder
     training_device = torch.device(device)
     model = build_model(client.task_name, config)
+    freeze_head_parameters(model)
     memory_applier(model, memory)
     client.load_private_classifier(model)
+    assert_no_trainable_heads(model)
     model.to(training_device)
 
     num_train_samples = client.num_train_samples
@@ -172,9 +183,11 @@ def train_client_with_memory(
         }
 
     model.train()
+    print_trainable_parameter_names(model)
+    classifier_state_before_training = get_head_state_dict(model)
     federated_config = config["federated"]
     optimizer = AdamW(
-        (parameter for parameter in model.parameters() if parameter.requires_grad),
+        trainable_adapter_parameters(model),
         lr=federated_config["lr"],
         weight_decay=federated_config["weight_decay"],
     )
@@ -202,6 +215,8 @@ def train_client_with_memory(
             total_loss += loss.detach().item() * batch_size
             total_examples += batch_size
 
+    assert_no_trainable_heads(model)
+    assert_head_state_unchanged(classifier_state_before_training, model)
     lora_state = get_lora_state_dict(model)
     client.save_private_classifier(model)
     average_loss = total_loss / total_examples if total_examples else 0.0
@@ -266,8 +281,10 @@ def vote_for_selected_atoms(
 
     build_model = model_builder or _default_model_builder
     model = build_model(client.task_name, config)
+    freeze_head_parameters(model)
     memory_applier(model, memory)
     client.load_private_classifier(model)
+    assert_no_trainable_heads(model)
     model.to(torch.device(device))
     records = vote_computer(
         model,
@@ -278,6 +295,7 @@ def vote_for_selected_atoms(
         client.task_name,
         device,
     )
+    assert_no_trainable_heads(model)
     del model
     return records
 
@@ -322,8 +340,10 @@ def evaluate_global_memory(
                     f"Client {client.client_id} has no persisted classifier state."
                 )
             model = build_model(task_name, config)
+            freeze_head_parameters(model)
             memory_applier(model, memory)
             client.load_private_classifier(model)
+            assert_no_trainable_heads(model)
             model.to(evaluation_device)
             model.eval()
 

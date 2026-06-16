@@ -49,6 +49,7 @@ class ToyTrainModel(nn.Module):
         self.lora_A = nn.Parameter(torch.ones(1, 2))
         self.lora_B = nn.Parameter(torch.zeros(2, 1))
         self.classifier = nn.Linear(2, 2, bias=False)
+        self.initial_classifier_weight = self.classifier.weight.detach().clone()
         self.classifier_loaded = False
 
     def forward(
@@ -110,6 +111,11 @@ def test_local_training_uses_one_fresh_memory_application_and_lora_upload() -> N
         tensor.device.type == "cpu"
         and not tensor.requires_grad
         for tensor in upload["lora_state_dict"].values()
+    )
+    assert built_models[0].classifier.weight.requires_grad is False
+    torch.testing.assert_close(
+        built_models[0].classifier.weight,
+        built_models[0].initial_classifier_weight,
     )
     assert upload["average_train_loss"] > 0
 

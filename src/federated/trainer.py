@@ -13,7 +13,11 @@ from transformers import AutoTokenizer
 from src.data.glue_clients import build_glue_clients
 from src.federated.client import FederatedClient
 from src.federated.server_fedavg import fedavg_lora_states
-from src.models.lora_utils import get_lora_state_dict, load_lora_state_dict
+from src.models.lora_utils import (
+    assert_no_trainable_heads,
+    get_lora_state_dict,
+    load_lora_state_dict,
+)
 from src.models.roberta_lora import build_lora_model
 from src.utils.config import load_config
 from src.utils.seed import set_seed
@@ -76,6 +80,7 @@ def evaluate_lora_state(
             model = build_lora_model(task_name, config)
             load_lora_state_dict(model, global_state, strict=False)
             client.load_private_classifier(model)
+            assert_no_trainable_heads(model)
             model.to(evaluation_device)
             model.eval()
 
